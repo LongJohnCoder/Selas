@@ -9,8 +9,10 @@ if platform == "Win64" then
 	table.insert(postBuildCopies, "Embree-3.0\\bin\\embree3.dll $(TargetDir)embree3.dll")
 	table.insert(postBuildCopies, "Embree-3.0\\bin\\tbb.dll $(TargetDir)tbb.dll")
 	
-	table.insert(middlewareLinkDirectories, "ptex/Release")
+	table.insert(middlewareLinkDirectories, "ptex\\Debug")
 	table.insert(middlewareLibraries, "Ptex")
+	table.insert(postBuildCopies, "ptex\\Debug\\Ptex.dll $(TargetDir)Ptex.dll")
+	table.insert(postBuildCopies, "ptex\\Debug\\zlib.dll $(TargetDir)zlib.dll")
 
 elseif platform == "osx" then
 	includedirs { MiddlewareDir .. "embree-3.2.0-osx/include" }

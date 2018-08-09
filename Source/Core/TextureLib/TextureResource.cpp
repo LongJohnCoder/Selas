@@ -13,10 +13,22 @@
 #include "SystemLib/BasicTypes.h"
 
 #include <stdio.h>
+#include <ptex/Include/Ptexture.h>
+#include <ptex/Include/PtexUtils.h>
 
 namespace Selas
 {
     cpointer TextureResource::kDataType = "Textures";
+    const uint64 TextureResource::kDataVersion = 1533699457ul;
+
+    //=============================================================================================================================
+    TextureResource::TextureResource()
+        : data(nullptr)
+        , ptex(nullptr)
+        , ptexFilter(nullptr)
+    {
+
+    }
 
     //=============================================================================================================================
     Error ReadTextureResource(cpointer textureName, TextureResource* texture)
@@ -39,8 +51,42 @@ namespace Selas
     }
 
     //=============================================================================================================================
+    Error InitializeTextureResource(TextureResource* texture)
+    {
+        if(StringUtil::Length(texture->data->ptexfilepath.Ascii()) == 0) {
+            return Success_;
+        }
+
+        Ptex::String errorStr;
+        Ptex::PtexTexture* ptex = Ptex::PtexTexture::open(texture->data->ptexfilepath.Ascii(), errorStr);
+        if(ptex == nullptr) {
+            return Error_("Failed to load ptex file (%s) with error: %s", texture->data->ptexfilepath.Ascii(), errorStr.c_str());
+        }
+
+        texture->ptex = (void*)ptex;
+        
+        Ptex::PtexFilter::Options options(Ptex::PtexFilter::f_box, true);
+
+        Ptex::PtexFilter* filter = Ptex::PtexFilter::getFilter(ptex, options);
+        texture->ptexFilter = (void*)filter;
+
+        return Success_;
+    }
+
+    //=============================================================================================================================
     void ShutdownTextureResource(TextureResource* texture)
     {
+        if(texture->ptex) {
+            Ptex::PtexTexture* ptex = (Ptex::PtexTexture*)texture->ptex;
+            Ptex::PtexFilter* filter = (Ptex::PtexFilter*)texture->ptexFilter;
+
+            filter->release();
+            ptex->release();
+
+            texture->ptex = nullptr;
+            texture->ptexFilter = nullptr;
+        }
+
         SafeFreeAligned_(texture->data);
     }
 

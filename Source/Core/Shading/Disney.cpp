@@ -543,7 +543,7 @@ namespace Selas
         float pTransmission;
         CalculateLobePdfs(surface, pSpecular, pDiffuse, pClearcoat, pTransmission);
 
-        float pLobe;
+        float pLobe = 0.0f;
         float p = sampler->UniformFloat();
         if(p <= pSpecular) {
             SampleDisneyBRDF(sampler, surface, v, sample);

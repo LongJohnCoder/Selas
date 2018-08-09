@@ -22,6 +22,8 @@ namespace Selas
         FixedString256 shaderName;
         FilePathString normalTexture;
         FilePathString baseColorTexture;
+        FilePathString baseColorFolder;
+
         float3 baseColor;
 
         FilePathString scalarAttributeTextures[eMaterialPropertyCount];
@@ -29,6 +31,7 @@ namespace Selas
         
         bool alphaTested;
         bool invertDisplacement;
+        bool usesPtex;
     };
 
     //== Import ====================================================================
@@ -43,19 +46,38 @@ namespace Selas
         CArray<uint32> triindices;
         CArray<uint32> quadindices;
         Hash32         materialHash;
+        Hash32         meshNameHash;
+    };
+
+    struct ModelInstance
+    {
+        float4x4 transform;
+        Hash32 materialHash;
+        uint32 meshIdx;
     };
 
     struct ImportedModel
     {
+        CArray<FilePathString> modelFiles;
         CArray<ImportedMesh*> meshes;
         CArray<FixedString256> materials;
         CArray<Hash32> materialHashes;
+
+        CArray<ImportedMaterialData> loadedMaterials;
+        CArray<Hash32> loadedMaterialHashes;       
+
+        CArray<ModelInstance> instances;
+
         CameraSettings camera;
     };
 
     //== Build =====================================================================
     struct BuiltScene
     {
+        // -- child models and instances
+        CArray<FilePathString> models;
+        CArray<ModelInstance> instances;
+
         // -- meta data
         CameraSettings camera;
         AxisAlignedBox aaBox;
@@ -68,13 +90,13 @@ namespace Selas
         CArray<Material>       materials;
 
         // -- geometry information
-        CArray<MeshMetaData>        meshes;
-        CArray<uint32>              indices;
-        CArray<uint32>              faceIndexCounts;
-        CArray<float3>              positions;
-        CArray<float3>              normals;
-        CArray<float4>              tangents;
-        CArray<float2>              uvs;
+        CArray<MeshMetaData> meshes;
+        CArray<uint32>       indices;
+        CArray<uint32>       faceIndexCounts;
+        CArray<float3>       positions;
+        CArray<float3>       normals;
+        CArray<float4>       tangents;
+        CArray<float2>       uvs;
     };
 
 }

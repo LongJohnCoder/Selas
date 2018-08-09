@@ -20,7 +20,7 @@ namespace Selas
     struct TextureResource;
     struct HitParameters;
 
-    enum eMaterialShader
+    enum ShaderTypes
     {
         eDisney,
         eTransparentGgx,
@@ -33,7 +33,8 @@ namespace Selas
         eTransparent              = 1 << 0,
         eAlphaTested              = 1 << 1,
         eDisplacementEnabled      = 1 << 2,
-        eInvertDisplacement       = 1 << 3
+        eInvertDisplacement       = 1 << 3,
+        eUsesPtex                 = 1 << 4
     };
 
     enum ScalarMaterialProperties
@@ -73,12 +74,14 @@ namespace Selas
             }
         }
 
-        eMaterialShader shader;
+        ShaderTypes shader;
         uint32 baseColorTextureIndex;
         uint32 normalTextureIndex;
         uint32 flags;
         float3 baseColor;
         
+        FilePathString texturesFolder;
+
         float scalarAttributeValues[eMaterialPropertyCount];
         uint32 scalarAttributeTextureIndices[eMaterialPropertyCount];
     };
@@ -90,36 +93,46 @@ namespace Selas
         uint32 vertexCount;
         uint32 vertexOffset;
         uint32 materialHash;
+        uint32 meshNameHash;
         uint32 indicesPerFace;
+    };
+
+    struct SceneInstance
+    {
+        float4x4 transform;
+        Hash32 materialHash;
+        uint32 meshIdx;
     };
 
     struct SceneMetaData
     {
+        FilePathString* modelNames;
+        SceneInstance*  instances;
+        uint32          modelCount;
+        uint32          instanceCount;      
+
         // -- camera information
         CameraSettings  camera;
 
         // -- misc scene info
         AxisAlignedBox  aaBox;
         float4          boundingSphere;
-        
+
         // -- only used when no ibl is provided for the scene
         float3          backgroundIntensity;
-        uint32          padding;
-
-        // -- material information
-        uint32          textureCount;
-        uint32          materialCount;
-        // -- long run plan is to have texture header in the scene and then the texture data will be loaded in via caching.
-        // -- for now I'm just making textures as a separate resource.
-        FilePathString* textureResourceNames;
-        Hash32*         materialHashes;
-        Material*       materials;
-        MeshMetaData*   meshData;
 
         // -- mesh information
         uint32          meshCount;
         uint32          totalVertexCount;
         uint32          indexCount;
+
+        // -- material information
+        uint32          textureCount;
+        uint32          materialCount;
+        FilePathString* textureResourceNames;
+        Hash32*         materialHashes;
+        Material*       materials;
+        MeshMetaData*   meshData;
     };
 
     struct SceneGeometryData
@@ -142,6 +155,7 @@ namespace Selas
         SceneMetaData* data;
         SceneGeometryData* geometry;
 
+        SceneResource* childScenes;
         TextureResource* textures;
         void* rtcDevice;
         void* rtcScene;

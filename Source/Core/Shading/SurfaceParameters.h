@@ -41,7 +41,7 @@ namespace Selas
         float ior;
 
         // -- material layer info
-        eMaterialShader shader;
+        ShaderTypes shader;
         uint32 materialFlags;
     };
 

@@ -24,6 +24,8 @@ namespace Selas
         BinaryWriter writer;
         SerializerStart(&writer, data->dataSize + sizeof(*data));
 
+        SerializerWrite(&writer, &data->ptexfilepath, sizeof(data->ptexfilepath));
+
         SerializerWrite(&writer, &data->mipCount, sizeof(data->mipCount));
         SerializerWrite(&writer, &data->dataSize, sizeof(data->dataSize));
 

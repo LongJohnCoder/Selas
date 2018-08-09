@@ -78,9 +78,10 @@ namespace Selas
 
             ImportedMesh* mesh = scene->meshes[meshIndex++];
 
-            bool hasNans = false;
-
             mesh->materialHash = scene->materialHashes[aimesh->mMaterialIndex];
+            mesh->meshNameHash = MurmurHash3_x86_32(aimesh->mName.C_Str(), StringUtil::Length(aimesh->mName.C_Str()), 0);
+
+            bool hasNans = false;
 
             // -- extract vertices
             uint vertexcount = aimesh->mNumVertices;

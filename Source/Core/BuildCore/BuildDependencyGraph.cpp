@@ -120,7 +120,7 @@ namespace Selas
         BuildGraphFilePath(filepath);
 
         BinaryWriter writer;
-        SerializerStart(&writer, 1024 * 1024, 1024 * 1024);
+        SerializerStart(&writer, 10 * 1024 * 1024, 0);
 
         uint32 count = (uint32)data->dependencyGraph.size();
         SerializerWrite(&writer, &count, sizeof(count));

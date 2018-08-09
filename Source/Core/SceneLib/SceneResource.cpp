@@ -24,7 +24,7 @@ namespace Selas
     cpointer SceneResource::kDataType = "Scene";
     cpointer SceneResource::kGeometryDataType = "SceneGeometry";
 
-    const uint64 SceneResource::kDataVersion = 1533665599ul;
+    const uint64 SceneResource::kDataVersion = 1533674794ul;
     const uint32 SceneResource::kGeometryDataAlignment = 16;
     static_assert(sizeof(SceneGeometryData) % SceneResource::kGeometryDataAlignment == 0, "SceneGeometryData must be aligned");
     static_assert(SceneResource::kGeometryDataAlignment % 4 == 0, "SceneGeometryData must be aligned");
@@ -134,17 +134,23 @@ namespace Selas
     //=============================================================================================================================
     static const Material* FindMeshMaterial(SceneResource* scene, Hash32 materialHash)
     {
-        uint materialIndex = BinarySearch(scene->data->materialHashes, scene->data->materialCount, materialHash);
-        if(materialIndex == (uint)-1) {
-            return scene->defaultMaterial;
+        if(scene->data->materialCount > 0) {
+            uint materialIndex = BinarySearch(scene->data->materialHashes, scene->data->materialCount, materialHash);
+            if(materialIndex != (uint)-1) {
+                return &scene->data->materials[materialIndex];
+            }
         }
 
-        return &scene->data->materials[materialIndex];
+        return scene->defaultMaterial;
     }
 
     //=============================================================================================================================
-    static void PopulateEmbreeScene(SceneResource* scene, RTCDevice rtcDevice, RTCScene rtcScene)
+    static void PopulateEmbreeScene(SceneResource* root, SceneResource* scene, RTCDevice rtcDevice, RTCScene rtcScene)
     {
+        for(uint scan = 0, count = scene->data->modelCount; scan < count; ++scan) {
+            CreateEmbreeInstance(root, rtcDevice, rtcScene);
+        }
+
         SceneMetaData* sceneData = scene->data;
         SceneGeometryData* geometry = scene->geometry;
 
@@ -153,7 +159,7 @@ namespace Selas
 
         for(uint32 scan = 0, count = sceneData->meshCount; scan < count; ++scan) {
             const MeshMetaData& meshData = sceneData->meshData[scan];
-            const Material* material = FindMeshMaterial(scene, meshData.materialHash);
+            const Material* material = FindMeshMaterial(root, meshData.materialHash);
 
             bool hasDisplacement = material->flags & MaterialFlags::eDisplacementEnabled && EnableDisplacement_;
             bool hasAlphaTesting = material->flags & MaterialFlags::eAlphaTested;
@@ -189,8 +195,8 @@ namespace Selas
                 rtcSetGeometryIntersectFilterFunction(rtcGeometry, IntersectionFilter);
             }
 
-            scene->materialLookup.Add(material);
-            scene->rtcGeometries.Add(rtcGeometry);
+            root->materialLookup.Add(material);
+            root->rtcGeometries.Add(rtcGeometry);
 
             rtcCommitGeometry(rtcGeometry);
             rtcAttachGeometryByID(rtcScene, rtcGeometry, scan);
@@ -208,6 +214,7 @@ namespace Selas
     SceneResource::SceneResource()
         : data(nullptr)
         , geometry(nullptr)
+        , childScenes(nullptr)
         , textures(nullptr)
         , rtcDevice(nullptr)
         , rtcScene(nullptr)
@@ -221,9 +228,11 @@ namespace Selas
     {
         Assert_(data == nullptr);
         Assert_(geometry == nullptr);
+        Assert_(childScenes == nullptr);
         Assert_(textures == nullptr);
         Assert_(rtcDevice == nullptr);
         Assert_(rtcScene == nullptr);
+        Assert_(defaultMaterial == nullptr);
     }
 
     //=============================================================================================================================
@@ -242,10 +251,37 @@ namespace Selas
         SerializerAttach(&reader, reinterpret_cast<void**>(&data->data), fileSize);
         SerializerEnd(&reader);
 
-        FixupPointerX64(fileData, data->data->textureResourceNames);
-        FixupPointerX64(fileData, data->data->materialHashes);
-        FixupPointerX64(fileData, data->data->materials);
-        FixupPointerX64(fileData, data->data->meshData);
+        // -- These could all just call FixupPointerX64 but this makes the data easier to read.
+        if(data->data->modelCount > 0)
+            FixupPointerX64(fileData, data->data->modelNames);
+        else
+            data->data->modelNames = nullptr;
+
+        if(data->data->instanceCount > 0)
+            FixupPointerX64(fileData, data->data->instances);
+        else
+            data->data->instances = nullptr;
+
+        if(data->data->textureCount > 0)
+            FixupPointerX64(fileData, data->data->textureResourceNames);
+        else
+            data->data->textureResourceNames = nullptr;
+        
+        if(data->data->materialCount > 0) {
+            FixupPointerX64(fileData, data->data->materialHashes);
+            FixupPointerX64(fileData, data->data->materials);
+        }
+        else {
+            data->data->materialHashes = nullptr;
+            data->data->materials = nullptr;
+        }
+
+        if(data->data->meshCount > 0) {
+            FixupPointerX64(fileData, data->data->meshData);
+        }
+        else {
+            data->data->meshData = nullptr;
+        }
 
         return Success_;
     }
@@ -287,13 +323,21 @@ namespace Selas
     //=============================================================================================================================
     Error InitializeSceneResource(SceneResource* scene)
     {
-        // -- JSTODO - Should be fetching other resource data from some asset mgr here rather than directly loading it
+        uint childSceneCount = scene->data->modelCount;
+        scene->childScenes = AllocArray_(SceneResource, childSceneCount);
+        for(uint scan = 0; scan < childSceneCount; ++scan) {
+            scene->childScenes[scan] = SceneResource();
+            ReturnError_(ReadSceneResource(scene->data->modelNames[scan].Ascii(), &scene->childScenes[scan]));
+        }
 
         uint textureCount = scene->data->textureCount;
         scene->textures = AllocArray_(TextureResource, textureCount);
 
-        for(uint scan = 0, count = scene->data->textureCount; scan < count; ++scan) {
+        for(uint scan = 0; scan < textureCount; ++scan) {
+            scene->textures[scan] = TextureResource();
+
             ReturnError_(ReadTextureResource(scene->data->textureResourceNames[scan].Ascii(), &scene->textures[scan]));
+            ReturnError_(InitializeTextureResource(&scene->textures[scan]));
         }
 
         scene->defaultMaterial = CreateDefaultMaterial();
@@ -310,7 +354,7 @@ namespace Selas
         scene->rtcDevice = (void*)rtcDevice;
         scene->rtcScene = (void*)rtcScene;
 
-        PopulateEmbreeScene(scene, rtcDevice, rtcScene);
+        PopulateEmbreeScene(scene, scene, rtcDevice, rtcScene);
     }
 
     //=============================================================================================================================
@@ -324,11 +368,15 @@ namespace Selas
         scene->rtcScene = nullptr;
         scene->rtcDevice = nullptr;
 
+        for(uint scan = 0, count = scene->data->modelCount; scan < count; ++scan) {
+            ShutdownSceneResource(&scene->childScenes[scan]);
+        }
         for(uint scan = 0, count = scene->data->textureCount; scan < count; ++scan) {
             ShutdownTextureResource(&scene->textures[scan]);
         }
 
         SafeDelete_(scene->defaultMaterial);
+        SafeFree_(scene->childScenes);
         SafeFree_(scene->textures);
         SafeFreeAligned_(scene->data);
         SafeFreeAligned_(scene->geometry);

@@ -4,6 +4,7 @@
 // Joe Schutte
 //=================================================================================================================================
 
+#include "StringLib/FixedString.h"
 #include "MathLib/FloatStructs.h"
 #include "SystemLib/Error.h"
 #include "SystemLib/BasicTypes.h"
@@ -12,6 +13,12 @@ namespace Selas
 {
     struct TextureResourceData
     {
+        TextureResourceData()
+        {
+            ptexfilepath.Clear();
+            texture = nullptr;
+        }
+
         enum TextureDataType
         {
             // -- Convert to something more like d3d formats?
@@ -22,6 +29,8 @@ namespace Selas
         };
 
         static const uint MaxMipCount = 16;
+
+        FilePathString ptexfilepath;
 
         uint32 mipCount;
         uint32 dataSize;
@@ -39,12 +48,17 @@ namespace Selas
     struct TextureResource
     {
         static cpointer kDataType;
-        static const uint64 kDataVersion = 1531601546ul;
+        static const uint64 kDataVersion;
+
+        TextureResource();
 
         TextureResourceData* data;
+        void* ptex;
+        void* ptexFilter;
     };
 
     Error ReadTextureResource(cpointer filepath, TextureResource* texture);
+    Error InitializeTextureResource(TextureResource* texture);
     void ShutdownTextureResource(TextureResource* texture);
     void DebugWriteTextureMips(TextureResource* texture, cpointer folder, cpointer name);
 }

@@ -9,6 +9,22 @@
 namespace Selas
 {
     //=============================================================================================================================
+    static void SerializeInstanceData(BinaryWriter* writer, const BuiltScene& sceneData)
+    {
+        uint32 modelCount = sceneData.models.Length();
+        uint32 instanceCount = sceneData.instances.Length();
+
+        SerializerWritePointerOffsetX64(writer);
+        SerializerWritePointerData(writer, sceneData.models.GetData(), sceneData.models.DataSize());
+
+        SerializerWritePointerOffsetX64(writer);
+        SerializerWritePointerData(writer, sceneData.instances.GetData(), sceneData.instances.DataSize());
+
+        SerializerWrite(writer, &modelCount, sizeof(modelCount));
+        SerializerWrite(writer, &instanceCount, sizeof(instanceCount));
+    }
+
+    //=============================================================================================================================
     static void SerializeMaterials(BinaryWriter* writer, const BuiltScene& sceneData)
     {
         uint32 materialCount = sceneData.materials.Length();
@@ -67,29 +83,28 @@ namespace Selas
     //=============================================================================================================================
     static Error BakeSceneMetaData(BuildProcessorContext* context, const BuiltScene& sceneData)
     {
-        uint32 presize = sceneData.textures.DataSize() + sceneData.materials.DataSize();
+        uint32 presize = sceneData.models.DataSize() + sceneData.instances.DataSize() + sceneData.textures.DataSize() 
+                       + sceneData.materials.DataSize();
 
         BinaryWriter writer;
         SerializerStart(&writer, 0, presize);
+
+        SerializeInstanceData(&writer, sceneData);
 
         SerializerWrite(&writer, &sceneData.camera, sizeof(sceneData.camera));
         SerializerWrite(&writer, &sceneData.aaBox, sizeof(sceneData.aaBox));
         SerializerWrite(&writer, &sceneData.boundingSphere, sizeof(sceneData.boundingSphere));
         SerializerWrite(&writer, &sceneData.backgroundIntensity, sizeof(sceneData.backgroundIntensity));
 
-        uint32 padding = 0;
-        SerializerWrite(&writer, &padding, sizeof(padding));
-
-        SerializeMaterials(&writer, sceneData);
-        SerializeMeshMetaData(&writer, sceneData);
-
         uint32 meshCount = sceneData.meshes.Length();
         uint32 vertexCount = sceneData.positions.Length();
         uint32 indexCounts = sceneData.indices.Length();
-
         SerializerWrite(&writer, &meshCount, sizeof(meshCount));
         SerializerWrite(&writer, &vertexCount, sizeof(vertexCount));
         SerializerWrite(&writer, &indexCounts, sizeof(indexCounts));
+
+        SerializeMaterials(&writer, sceneData);
+        SerializeMeshMetaData(&writer, sceneData);
 
         void* assetData;
         uint32 assetSize;
